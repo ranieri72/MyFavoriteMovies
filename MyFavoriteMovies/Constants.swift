@@ -14,7 +14,7 @@ struct Constants {
     
     // MARK: TMDB
     struct TMDB {
-        static let ApiScheme = "http"
+        static let ApiScheme = "https"
         static let ApiHost = "api.themoviedb.org"
         static let ApiPath = "/3"
     }
@@ -30,7 +30,7 @@ struct Constants {
     
     // MARK: TMDB Parameter Values
     struct TMDBParameterValues {
-        static let ApiKey = "YOUR_API_KEY_HERE"
+        static let ApiKey = "9c3708bebb618b057ff852cd4ee7ae0e"
     }
     
     // MARK: TMDB Response Keys

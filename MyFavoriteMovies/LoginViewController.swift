@@ -46,6 +46,13 @@ class LoginViewController: UIViewController {
         unsubscribeFromAllNotifications()
     }
     
+    private func displayError(enabled: Bool, msgError: String) {
+        performUIUpdatesOnMain {
+            self.setUIEnabled(enabled);
+            self.debugTextLabel.text = msgError;
+        }
+    }
+    
     // MARK: Login
     
     @IBAction func loginPressed(_ sender: AnyObject) {
@@ -99,48 +106,206 @@ class LoginViewController: UIViewController {
         /* 4. Make the request */
         let task = appDelegate.sharedSession.dataTask(with: request) { (data, response, error) in
             
+            guard(error == nil) else {
+                self.displayError(enabled: true, msgError: "Houve um erro na sua requisição: \(String(describing: error))");
+                return;
+            }
+            
+            guard let statusCode = (response as? HTTPURLResponse)?.statusCode, statusCode >= 200 && statusCode <= 299 else {
+                self.displayError(enabled: true, msgError: "Sua requisição retornou um código diferente de 2xx!");
+                return;
+            }
+            
+            guard let data = data else {
+                self.displayError(enabled: true, msgError: "Nenhum dado retornado pela sua requisição!");
+                return;
+            }
+            
             /* 5. Parse the data */
+            let parsedResult: [String:AnyObject]!
+            do {
+                parsedResult = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as! [String:AnyObject]
+            } catch {
+                self.displayError(enabled: true, msgError: "Não é possível converter os dados para JSON");
+                return;
+            }
+            
+            guard let token = parsedResult[Constants.TMDBParameterKeys.RequestToken] as? String else {
+                self.displayError(enabled: true, msgError: "TMDB API retornou um erro!");
+                return;
+            }
+            
             /* 6. Use the data! */
+            //print("token: \(token)");
+            self.appDelegate.requestToken = token;
+            self.loginWithToken();
         }
-
         /* 7. Start the request */
-        task.resume()
+        task.resume();
     }
     
-    private func loginWithToken(_ requestToken: String) {
+    private func loginWithToken() {
         
         /* TASK: Login, then get a session id */
         
         /* 1. Set the parameters */
+        let methodParameters: [String: String?] = [
+            Constants.TMDBParameterKeys.ApiKey: Constants.TMDBParameterValues.ApiKey,
+            Constants.TMDBParameterKeys.Username: usernameTextField.text,
+            Constants.TMDBParameterKeys.Password: passwordTextField.text,
+            Constants.TMDBParameterKeys.RequestToken: appDelegate.requestToken
+        ];
+        
         /* 2/3. Build the URL, Configure the request */
+        let request = URLRequest(url: appDelegate.tmdbURLFromParameters(methodParameters as [String:AnyObject], withPathExtension: "/authentication/token/validate_with_login"));
+        
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTask(with: request) { (data, response, error) in
+            
+            guard(error == nil) else {
+                self.displayError(enabled: true, msgError: "Houve um erro na sua requisição: \(String(describing: error))");
+                return;
+            }
+            
+            guard let statusCode = (response as? HTTPURLResponse)?.statusCode, statusCode >= 200 && statusCode <= 299 else {
+                self.displayError(enabled: true, msgError: "Sua requisição retornou um código diferente de 2xx!");
+                return;
+            }
+            
+            guard let data = data else {
+                self.displayError(enabled: true, msgError: "Nenhum dado retornado pela sua requisição!");
+                return;
+            }
+            
+            /* 5. Parse the data */
+            let parsedResult: [String:AnyObject]!
+            do {
+                parsedResult = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as! [String:AnyObject]
+            } catch {
+                self.displayError(enabled: true, msgError: "Não é possível converter os dados para JSON!");
+                return;
+            }
+            
+            guard let token = parsedResult[Constants.TMDBParameterKeys.RequestToken] as? String else {
+                self.displayError(enabled: true, msgError: "TMDB API retornou um erro!");
+                return;
+            }
+            
+            /* 6. Use the data! */
+            //print("token: \(token)");
+            self.appDelegate.requestToken = token;
+            self.getSessionID();
+        }
         /* 7. Start the request */
+        task.resume();
     }
     
-    private func getSessionID(_ requestToken: String) {
+    private func getSessionID() {
         
         /* TASK: Get a session ID, then store it (appDelegate.sessionID) and get the user's id */
         
         /* 1. Set the parameters */
+        let methodParameters: [String: String?] = [
+            Constants.TMDBParameterKeys.ApiKey: Constants.TMDBParameterValues.ApiKey,
+            Constants.TMDBParameterKeys.RequestToken: appDelegate.requestToken
+        ];
+        
         /* 2/3. Build the URL, Configure the request */
+        let request = URLRequest(url: appDelegate.tmdbURLFromParameters(methodParameters as [String:AnyObject], withPathExtension: "/authentication/session/new"));
+        
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTask(with: request) { (data, response, error) in
+            
+            guard(error == nil) else {
+                self.displayError(enabled: true, msgError: "Houve um erro na sua requisição: \(String(describing: error))");
+                return;
+            }
+            
+            guard let statusCode = (response as? HTTPURLResponse)?.statusCode, statusCode >= 200 && statusCode <= 299 else {
+                self.displayError(enabled: true, msgError: "Sua requisição retornou um código diferente de 2xx!");
+                return;
+            }
+            
+            guard let data = data else {
+                self.displayError(enabled: true, msgError: "Nenhum dado retornado pela sua requisição!");
+                return;
+            }
+            
+            /* 5. Parse the data */
+            let parsedResult: [String:AnyObject]!
+            do {
+                parsedResult = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as! [String:AnyObject]
+            } catch {
+                self.displayError(enabled: true, msgError: "Não é possível converter os dados para JSON!");
+                return;
+            }
+            
+            guard let sessionId = parsedResult[Constants.TMDBParameterKeys.SessionID] as? String else {
+                self.displayError(enabled: true, msgError: "TMDB API retornou um erro!");
+                return;
+            }
+            
+            /* 6. Use the data! */
+            //print("sessionId: \(sessionId)");
+            self.appDelegate.sessionID = sessionId;
+            self.getUserID();
+        }
         /* 7. Start the request */
+        task.resume();
     }
     
-    private func getUserID(_ sessionID: String) {
+    private func getUserID() {
         
         /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
         
         /* 1. Set the parameters */
+        let methodParameters: [String: String?] = [
+            Constants.TMDBParameterKeys.ApiKey: Constants.TMDBParameterValues.ApiKey,
+            Constants.TMDBParameterKeys.SessionID: appDelegate.sessionID
+        ];
+        
         /* 2/3. Build the URL, Configure the request */
+        let request = URLRequest(url: appDelegate.tmdbURLFromParameters(methodParameters as [String:AnyObject], withPathExtension: "/account"));
+        
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTask(with: request) { (data, response, error) in
+            
+            guard(error == nil) else {
+                self.displayError(enabled: true, msgError: "Houve um erro na sua requisição: \(String(describing: error))");
+                return;
+            }
+            
+            guard let statusCode = (response as? HTTPURLResponse)?.statusCode, statusCode >= 200 && statusCode <= 299 else {
+                self.displayError(enabled: true, msgError: "Sua requisição retornou um código diferente de 2xx!");
+                return;
+            }
+            
+            guard let data = data else {
+                self.displayError(enabled: true, msgError: "Nenhum dado retornado pela sua requisição!");
+                return;
+            }
+            
+            /* 5. Parse the data */
+            let parsedResult: [String:AnyObject]!
+            do {
+                parsedResult = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as! [String:AnyObject]
+            } catch {
+                self.displayError(enabled: true, msgError: "Não é possível converter os dados para JSON!");
+                return;
+            }
+            
+            guard let userId = parsedResult[Constants.TMDBResponseKeys.ID] as? Int else {
+                self.displayError(enabled: true, msgError: "TMDB API retornou um erro!");
+                return;
+            }
+            
+            /* 6. Use the data! */
+            //print("userId: \(userId)");
+            self.appDelegate.userID = userId;
+            self.completeLogin();
+        }
         /* 7. Start the request */
+        task.resume();
     }
 }
 
